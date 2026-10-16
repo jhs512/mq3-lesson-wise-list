@@ -1,0 +1,277 @@
+{
+  "schema_version": 1,
+  "id": "wise-list",
+  "revision": "v1.0.0",
+  "title": "명언 게시판 2 · 컬렉션과 요청",
+  "description": "배열 저장소를 List로 바꾸고 요청을 구분해요.",
+  "sources": [
+    "https://slog.gg/p/14145"
+  ],
+  "sections": [
+    {
+      "id": "reading-1",
+      "title": "동작은 유지하고 저장 방법 바꾸기",
+      "body": "앞 저장소의 호출 방법은 그대로 유지해요.\n배열의 복사와 자리 이동을 ArrayList에 맡겨요.\n이때 기존 테스트가 변경을 지켜줘요.\n외부에 원본 List를 그대로 반환하면 위험해요.\n호출한 쪽이 clear하면 저장소도 비워지거든요.\nList.copyOf로 변경할 수 없는 복사본을 줘요.\nQuote 자체도 record라 값을 직접 바꾸지 못해요.\n"
+    },
+    {
+      "id": "reading-2",
+      "title": "콘솔 명령에 조건 붙이기",
+      "body": "`삭제?id=3`은 동작과 조건을 함께 담아요.\n물음표 앞은 동작이고 뒤는 쿼리 문자열이에요.\n쿼리는 `&`로 여러 값을 연결해요.\n각 값은 첫 `=`에서만 나눠야 해요.\n조심하세요. 값 안에도 등호가 올 수 있어요.\n파싱을 Rq로 나누면 CRUD는 파싱을 몰라도 돼요.\n다음 TDD 수업에서 Rq를 경계값으로 검증해요.\n"
+    }
+  ],
+  "tasks": [
+    {
+      "id": "list-crud",
+      "title": "같은 계약을 List로 구현하기",
+      "goal": "`record Quote(int id, String content, String author)`를 만드세요.\n`QuoteStore`는 `add`, `list`, `update`, `delete`를 제공해요.\nadd는 1부터 증가하는 ID를 반환해요.\nlist는 등록 순서의 List<Quote>를 반환해요.\nupdate(id, content, author)는 찾으면 수정하고 true예요.\ndelete(id)는 찾으면 삭제하고 true예요.\n없는 ID는 false예요. 삭제한 ID는 재사용하지 마세요.\n외부에서 list 결과를 바꿔도 원본은 유지돼야 해요.\n내부 저장은 List<Quote>로 바꾸세요.",
+      "language": "junit",
+      "entry_file": "Exercise.java",
+      "starter_code": "import java.util.*;\nrecord Quote(int id, String content, String author) {}\nclass QuoteStore {\n}\n",
+      "solution": "import java.util.*;\nrecord Quote(int id, String content, String author) {}\nclass QuoteStore {\n    private final List<Quote> data = new ArrayList<>();\n    // 삭제해도 증가하는 ID는 되돌리지 않아요.\n    private int nextId = 1;\n    int add(String content, String author) {\n        // 반환한 ID와 저장한 객체의 ID를 같게 유지해요.\n        int id = nextId++;\n        data.add(new Quote(id, content, author));\n        return id;\n    }\n    List<Quote> list() { return List.copyOf(data); }\n    // 수정은 새 record로 교체해 기존 ID를 보존해요.\n    boolean update(int id, String content, String author) {\n        for (int i = 0; i < data.size(); i++) {\n            // 위치가 아닌 객체의 ID를 비교해요.\n            if (data.get(i).id() == id) {\n                data.set(i, new Quote(id, content, author));\n                return true;\n            }\n        }\n        return false;\n    }\n    boolean delete(int id) {\n        // 삭제 여부를 호출한 쪽에 알려줘요.\n        return data.removeIf(q -> q.id() == id);\n    }\n}\n",
+      "files": {
+        "ExerciseTest.java": "import org.junit.jupiter.api.Test;\nimport static org.assertj.core.api.Assertions.*;\nclass ExerciseTest {\n@Test void crudAndStableIds() {\n    var store = new QuoteStore();\n    assertThat(store.list()).isEmpty();\n    int first = store.add(\"시작\", \"민수\"); int second = store.add(\"계속\", \"영희\");\n    assertThat(first).isEqualTo(1); assertThat(second).isEqualTo(2);\n    assertThat(store.list()).containsExactly(new Quote(1,\"시작\",\"민수\"),new Quote(2,\"계속\",\"영희\"));\n    assertThat(store.update(1,\"다시\",\"민수\")).isTrue();\n    assertThat(store.delete(1)).isTrue(); assertThat(store.delete(1)).isFalse();\n    assertThat(store.update(99,\"없음\",\"없음\")).isFalse();\n    assertThat(store.add(\"끝\", \"수지\")).isEqualTo(3);\n    assertThat(store.list()).containsExactly(new Quote(2,\"계속\",\"영희\"),new Quote(3,\"끝\",\"수지\"));\n}\n@Test void returnedListCannotChangeStorage() {\n    var store = new QuoteStore(); store.add(\"하나\",\"가\");\n    try { store.list().clear(); } catch (UnsupportedOperationException ignored) { }\n    assertThat(store.list()).hasSize(1);\n}\n\n}\n",
+        "build.gradle": "plugins { id 'java' }\nrepositories { mavenCentral() }\njava { toolchain { languageVersion = JavaLanguageVersion.of(25) } }\ndependencies {\n    testImplementation 'org.junit.jupiter:junit-jupiter:5.13.4'\n    testImplementation 'org.assertj:assertj-core:3.27.7'\n    testRuntimeOnly 'org.junit.platform:junit-platform-launcher:1.13.4'\n}\nsourceSets { test { java { srcDirs = ['.']; include '*.java' } } }\ntest { useJUnitPlatform() }\n",
+        "settings.gradle": "rootProject.name = 'mq3-exercise'\n"
+      },
+      "tests": [],
+      "web_checks": [],
+      "mutations": [],
+      "required": true,
+      "narration": [
+        {
+          "action": "say",
+          "target": "problem",
+          "text": "`record Quote(int id, String content, String author)`를 만드세요.\n`QuoteStore`는 `add`, `list`, `update`, `delete`를 제공해요.\nadd는 1부터 증가하는 ID를 반환해요.\nlist는 등록 순서의 List<Quote>를 반환해요.\nupdate(id, content, author)는 찾으면 수정하고 true예요.\ndelete(id)는 찾으면 삭제하고 true예요.\n없는 ID는 false예요. 삭제한 ID는 재사용하지 마세요.\n외부에서 list 결과를 바꿔도 원본은 유지돼야 해요.\n내부 저장은 List<Quote>로 바꾸세요."
+        },
+        {
+          "action": "say",
+          "target": "editor",
+          "text": "조심하세요. 실행 성공과 모든 검사 통과는 달라요. 단계마다 결과를 확인해요."
+        },
+        {
+          "action": "set_code",
+          "code": "import java.util.*;\nrecord Quote(int id, String content, String author) {}\nclass QuoteStore {\n    private final List<Quote> data = new ArrayList<>();\n    // 삭제해도 증가하는 ID는 되돌리지 않아요.\n    private int nextId = 1;\n    int add(String content, String author) {/*mq3-step-0*/throw new UnsupportedOperationException(\"아직 구현 전이에요\");}\n    List<Quote> list() {/*mq3-step-1*/throw new UnsupportedOperationException(\"아직 구현 전이에요\");}\n    // 수정은 새 record로 교체해 기존 ID를 보존해요.\n    boolean update(int id, String content, String author) {/*mq3-step-2*/throw new UnsupportedOperationException(\"아직 구현 전이에요\");}\n    boolean delete(int id) {/*mq3-step-3*/throw new UnsupportedOperationException(\"아직 구현 전이에요\");}\n}\n",
+          "say": "선언과 생성자를 먼저 준비했어요. 메서드는 하나씩 채울게요."
+        },
+        {
+          "action": "run",
+          "expected_failure": true
+        },
+        {
+          "action": "say",
+          "target": "output",
+          "text": "아직 구현하지 않은 메서드가 있어요. 지금 실패하는 위치를 확인하세요."
+        },
+        {
+          "action": "patch_code",
+          "before": "/*mq3-step-0*/throw new UnsupportedOperationException(\"아직 구현 전이에요\");",
+          "after": "\n        // 반환한 ID와 저장한 객체의 ID를 같게 유지해요.\n        int id = nextId++;\n/*mq3-step-0*/throw new UnsupportedOperationException(\"아직 구현 전이에요\");",
+          "say": "작은 조각을 채워요. 앞뒤의 변수와 조건을 함께 확인하세요."
+        },
+        {
+          "action": "patch_code",
+          "before": "/*mq3-step-0*/throw new UnsupportedOperationException(\"아직 구현 전이에요\");",
+          "after": "        data.add(new Quote(id, content, author));\n        return id;\n    /*mq3-step-0*/throw new UnsupportedOperationException(\"아직 구현 전이에요\");"
+        },
+        {
+          "action": "patch_code",
+          "before": "/*mq3-step-0*/throw new UnsupportedOperationException(\"아직 구현 전이에요\");",
+          "after": ""
+        },
+        {
+          "action": "run",
+          "expected_failure": true
+        },
+        {
+          "action": "say",
+          "target": "output",
+          "text": "실행 결과를 읽어보세요. 아직 남은 검사와 통과한 검사를 비교해요."
+        },
+        {
+          "action": "patch_code",
+          "before": "/*mq3-step-1*/throw new UnsupportedOperationException(\"아직 구현 전이에요\");",
+          "after": " return List.copyOf(data); /*mq3-step-1*/throw new UnsupportedOperationException(\"아직 구현 전이에요\");",
+          "say": "작은 조각을 채워요. 앞뒤의 변수와 조건을 함께 확인하세요."
+        },
+        {
+          "action": "patch_code",
+          "before": "/*mq3-step-1*/throw new UnsupportedOperationException(\"아직 구현 전이에요\");",
+          "after": ""
+        },
+        {
+          "action": "run",
+          "expected_failure": true
+        },
+        {
+          "action": "say",
+          "target": "output",
+          "text": "실행 결과를 읽어보세요. 아직 남은 검사와 통과한 검사를 비교해요."
+        },
+        {
+          "action": "patch_code",
+          "before": "/*mq3-step-2*/throw new UnsupportedOperationException(\"아직 구현 전이에요\");",
+          "after": "\n        for (int i = 0; i < data.size(); i++) {\n            // 위치가 아닌 객체의 ID를 비교해요.\n/*mq3-step-2*/throw new UnsupportedOperationException(\"아직 구현 전이에요\");",
+          "say": "작은 조각을 채워요. 앞뒤의 변수와 조건을 함께 확인하세요."
+        },
+        {
+          "action": "patch_code",
+          "before": "/*mq3-step-2*/throw new UnsupportedOperationException(\"아직 구현 전이에요\");",
+          "after": "            if (data.get(i).id() == id) {\n                data.set(i, new Quote(id, content, author));\n                return true;\n/*mq3-step-2*/throw new UnsupportedOperationException(\"아직 구현 전이에요\");"
+        },
+        {
+          "action": "patch_code",
+          "before": "/*mq3-step-2*/throw new UnsupportedOperationException(\"아직 구현 전이에요\");",
+          "after": "            }\n        }\n        return false;\n/*mq3-step-2*/throw new UnsupportedOperationException(\"아직 구현 전이에요\");"
+        },
+        {
+          "action": "patch_code",
+          "before": "/*mq3-step-2*/throw new UnsupportedOperationException(\"아직 구현 전이에요\");",
+          "after": "    /*mq3-step-2*/throw new UnsupportedOperationException(\"아직 구현 전이에요\");"
+        },
+        {
+          "action": "patch_code",
+          "before": "/*mq3-step-2*/throw new UnsupportedOperationException(\"아직 구현 전이에요\");",
+          "after": ""
+        },
+        {
+          "action": "run",
+          "expected_failure": true
+        },
+        {
+          "action": "say",
+          "target": "output",
+          "text": "실행 결과를 읽어보세요. 아직 남은 검사와 통과한 검사를 비교해요."
+        },
+        {
+          "action": "patch_code",
+          "before": "/*mq3-step-3*/throw new UnsupportedOperationException(\"아직 구현 전이에요\");",
+          "after": "\n        // 삭제 여부를 호출한 쪽에 알려줘요.\n        return data.removeIf(q -> q.id() == id);\n/*mq3-step-3*/throw new UnsupportedOperationException(\"아직 구현 전이에요\");",
+          "say": "작은 조각을 채워요. 앞뒤의 변수와 조건을 함께 확인하세요."
+        },
+        {
+          "action": "patch_code",
+          "before": "/*mq3-step-3*/throw new UnsupportedOperationException(\"아직 구현 전이에요\");",
+          "after": "    /*mq3-step-3*/throw new UnsupportedOperationException(\"아직 구현 전이에요\");"
+        },
+        {
+          "action": "patch_code",
+          "before": "/*mq3-step-3*/throw new UnsupportedOperationException(\"아직 구현 전이에요\");",
+          "after": ""
+        },
+        {
+          "action": "run",
+          "expected_failure": false
+        },
+        {
+          "action": "say",
+          "target": "output",
+          "text": "실행 결과를 읽어보세요. 아직 남은 검사와 통과한 검사를 비교해요."
+        }
+      ],
+      "source_hash": "c39911ecb4db38bdceb63c4d4ed7a4a64127d045c2b92c3e81bbf9af3499e832"
+    },
+    {
+      "id": "console-flow",
+      "title": "콘솔 명령과 저장소 연결하기",
+      "goal": "`App.run(Scanner, PrintStream)`을 구현하세요.\n등록 다음 두 줄은 내용과 작가예요.\n목록은 `ID / 작가 / 내용`을 줄마다 표시해요.\n삭제?id=숫자는 삭제하고, 종료는 반복을 끝내요.\n제공한 QuoteStore.java를 사용하세요.\n출력 문구는 검사 사례를 확인하세요.",
+      "language": "java_project",
+      "entry_file": "App.java",
+      "starter_code": "import java.util.Scanner;\nimport java.io.PrintStream;\nclass App {\n    void run(Scanner input, PrintStream out) {\n        // 명령을 처리하세요.\n    }\n}\n",
+      "solution": "import java.util.Scanner;\nimport java.io.PrintStream;\nclass App {\n    void run(Scanner input, PrintStream out) {\n        // 입력 도구와 출력 도구를 받아 실제 콘솔 없이도 검사해요.\n        var store = new QuoteStore();\n        while (input.hasNextLine()) {\n            String command = input.nextLine();\n            if (command.equals(\"종료\")) break;\n            if (command.equals(\"등록\")) {\n                // 등록 명령 다음 두 줄은 내용과 작가예요.\n                String content = input.nextLine(), author = input.nextLine();\n                out.println(store.add(content, author) + \"번 등록\");\n            } else if (command.equals(\"목록\")) {\n                for (var quote : store.list())\n                    out.println(quote.id() + \" / \" + quote.author() + \" / \" + quote.content());\n            } else if (command.startsWith(\"삭제?id=\")) {\n                try {\n                    int id = Integer.parseInt(command.substring(6));\n                    out.println(store.delete(id) ? id + \"번 삭제\" : \"없는 명언\");\n                } catch (NumberFormatException e) { out.println(\"잘못된 ID\"); }\n            } else out.println(\"알 수 없는 명령\");\n        }\n    }\n}\n",
+      "files": {
+        "QuoteStore.java": "import java.util.*;\nrecord Quote(int id, String content, String author) {}\nclass QuoteStore {\n    private final List<Quote> data = new ArrayList<>();\n    // 삭제해도 증가하는 ID는 되돌리지 않아요.\n    private int nextId = 1;\n    int add(String content, String author) {\n        // 반환한 ID와 저장한 객체의 ID를 같게 유지해요.\n        int id = nextId++;\n        data.add(new Quote(id, content, author));\n        return id;\n    }\n    List<Quote> list() { return List.copyOf(data); }\n    // 수정은 새 record로 교체해 기존 ID를 보존해요.\n    boolean update(int id, String content, String author) {\n        for (int i = 0; i < data.size(); i++) {\n            // 위치가 아닌 객체의 ID를 비교해요.\n            if (data.get(i).id() == id) {\n                data.set(i, new Quote(id, content, author));\n                return true;\n            }\n        }\n        return false;\n    }\n    boolean delete(int id) {\n        // 삭제 여부를 호출한 쪽에 알려줘요.\n        return data.removeIf(q -> q.id() == id);\n    }\n}\n",
+        "Main.java": "class Main {\n    public static void main(String[] args) {\n        new App().run(new java.util.Scanner(System.in, \"UTF-8\"), System.out);\n    }\n}\n"
+      },
+      "tests": [
+        {
+          "input": "등록\n시작\n민수\n등록\n계속\n영희\n삭제?id=1\n목록\n등록\n끝\n수지\n목록\n종료\n",
+          "expected": "1번 등록\n2번 등록\n1번 삭제\n2 / 영희 / 계속\n3번 등록\n2 / 영희 / 계속\n3 / 수지 / 끝\n"
+        },
+        {
+          "input": "삭제?id=99\n삭제?id=oops\n다른명령\n종료\n",
+          "expected": "없는 명언\n잘못된 ID\n알 수 없는 명령\n"
+        }
+      ],
+      "web_checks": [],
+      "mutations": [],
+      "required": true,
+      "narration": [
+        {
+          "action": "say",
+          "target": "problem",
+          "text": "`App.run(Scanner, PrintStream)`을 구현하세요.\n등록 다음 두 줄은 내용과 작가예요.\n목록은 `ID / 작가 / 내용`을 줄마다 표시해요.\n삭제?id=숫자는 삭제하고, 종료는 반복을 끝내요.\n제공한 QuoteStore.java를 사용하세요.\n출력 문구는 검사 사례를 확인하세요."
+        },
+        {
+          "action": "say",
+          "target": "editor",
+          "text": "조심하세요. 실행 성공과 모든 검사 통과는 달라요. 단계마다 결과를 확인해요."
+        },
+        {
+          "action": "set_code",
+          "code": "import java.util.Scanner;\nimport java.io.PrintStream;\nclass App {\n    void run(Scanner input, PrintStream out) {/*mq3-step-0*/throw new UnsupportedOperationException(\"아직 구현 전이에요\");}\n}\n",
+          "say": "선언과 생성자를 먼저 준비했어요. 메서드는 하나씩 채울게요."
+        },
+        {
+          "action": "run",
+          "expected_failure": true
+        },
+        {
+          "action": "say",
+          "target": "output",
+          "text": "아직 구현하지 않은 메서드가 있어요. 지금 실패하는 위치를 확인하세요."
+        },
+        {
+          "action": "patch_code",
+          "before": "/*mq3-step-0*/throw new UnsupportedOperationException(\"아직 구현 전이에요\");",
+          "after": "\n        // 입력 도구와 출력 도구를 받아 실제 콘솔 없이도 검사해요.\n        var store = new QuoteStore();\n/*mq3-step-0*/throw new UnsupportedOperationException(\"아직 구현 전이에요\");",
+          "say": "작은 조각을 채워요. 앞뒤의 변수와 조건을 함께 확인하세요."
+        },
+        {
+          "action": "patch_code",
+          "before": "/*mq3-step-0*/throw new UnsupportedOperationException(\"아직 구현 전이에요\");",
+          "after": "        while (input.hasNextLine()) {\n            String command = input.nextLine();\n            if (command.equals(\"종료\")) break;\n/*mq3-step-0*/throw new UnsupportedOperationException(\"아직 구현 전이에요\");"
+        },
+        {
+          "action": "patch_code",
+          "before": "/*mq3-step-0*/throw new UnsupportedOperationException(\"아직 구현 전이에요\");",
+          "after": "            if (command.equals(\"등록\")) {\n                // 등록 명령 다음 두 줄은 내용과 작가예요.\n                String content = input.nextLine(), author = input.nextLine();\n/*mq3-step-0*/throw new UnsupportedOperationException(\"아직 구현 전이에요\");"
+        },
+        {
+          "action": "patch_code",
+          "before": "/*mq3-step-0*/throw new UnsupportedOperationException(\"아직 구현 전이에요\");",
+          "after": "                out.println(store.add(content, author) + \"번 등록\");\n            } else if (command.equals(\"목록\")) {\n                for (var quote : store.list())\n/*mq3-step-0*/throw new UnsupportedOperationException(\"아직 구현 전이에요\");"
+        },
+        {
+          "action": "patch_code",
+          "before": "/*mq3-step-0*/throw new UnsupportedOperationException(\"아직 구현 전이에요\");",
+          "after": "                    out.println(quote.id() + \" / \" + quote.author() + \" / \" + quote.content());\n            } else if (command.startsWith(\"삭제?id=\")) {\n                try {\n/*mq3-step-0*/throw new UnsupportedOperationException(\"아직 구현 전이에요\");"
+        },
+        {
+          "action": "patch_code",
+          "before": "/*mq3-step-0*/throw new UnsupportedOperationException(\"아직 구현 전이에요\");",
+          "after": "                    int id = Integer.parseInt(command.substring(6));\n                    out.println(store.delete(id) ? id + \"번 삭제\" : \"없는 명언\");\n                } catch (NumberFormatException e) { out.println(\"잘못된 ID\"); }\n/*mq3-step-0*/throw new UnsupportedOperationException(\"아직 구현 전이에요\");"
+        },
+        {
+          "action": "patch_code",
+          "before": "/*mq3-step-0*/throw new UnsupportedOperationException(\"아직 구현 전이에요\");",
+          "after": "            } else out.println(\"알 수 없는 명령\");\n        }\n    /*mq3-step-0*/throw new UnsupportedOperationException(\"아직 구현 전이에요\");"
+        },
+        {
+          "action": "patch_code",
+          "before": "/*mq3-step-0*/throw new UnsupportedOperationException(\"아직 구현 전이에요\");",
+          "after": ""
+        },
+        {
+          "action": "run",
+          "expected_failure": false
+        },
+        {
+          "action": "say",
+          "target": "output",
+          "text": "실행 결과를 읽어보세요. 아직 남은 검사와 통과한 검사를 비교해요."
+        }
+      ],
+      "source_hash": "2a883793e2438c3b50d1c7b68d4641a1de2f33f546e9bb254d65f819bc1270b2"
+    }
+  ]
+}
